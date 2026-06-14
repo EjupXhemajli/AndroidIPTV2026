@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">EX-IPTV</string>
+    <string name="server_url">Server-Adresse (z. B. http://server:port)</string>
+    <string name="username">Benutzername</string>
+    <string name="password">Passwort</string>
+    <string name="login">Anmelden</string>
+    <string name="logout">Abmelden</string>
+    <string name="enter_server_user">Bitte Server und Benutzername eingeben</string>
+    <string name="login_failed">Anmeldung fehlgeschlagen. Bitte Daten prüfen.</string>
+    <string name="load_failed">Sender konnten nicht geladen werden.</string>
+    <string name="channels">Sender</string>
+    <string name="categories">Kategorien</string>
+</resources>
