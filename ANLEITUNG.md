@@ -1,130 +1,129 @@
-# EX-IPTV für Android – Anleitung
+# EX-IPTV für Android – Anleitung (Version 0.2.0)
 
-Diese Anleitung führt dich Schritt für Schritt von null bis zur fertigen App auf
-deinem Handy, Android-Fernseher oder Fire-TV-Stick. Du brauchst **keinen**
-Entwickler-PC und **kein** Android Studio – die App wird kostenlos in der
-GitHub-Cloud gebaut.
-
----
-
-## Was du brauchst
-
-- Ein kostenloses GitHub-Konto (Anmeldung dauert 2 Minuten).
-- Diese Projektdateien (die Sie gerade als ZIP erhalten haben).
-- Deine Xtream-Zugangsdaten vom IPTV-Anbieter: Server-Adresse, Benutzername, Passwort.
+Diese Version baut die **echte Oberfläche der Windows-App** ein: dieselbe
+Startseite mit Logo und Kacheln, dieselbe Seitenleiste, dieselben Bildschirme.
+Das gelingt, indem die App den Original-Server im Hintergrund mitlaufen lässt
+und seine Oberfläche in einem eingebauten Browserfenster anzeigt.
 
 ---
 
-## Teil 1 – Projekt zu GitHub hochladen
+## Was sich gegenüber der ersten Version geändert hat
 
-### 1. GitHub-Konto erstellen
-Gehe auf **https://github.com** und registriere dich (falls noch nicht geschehen).
+- **Vorher (0.1.0):** nur ein einfacher Anmelde-Bildschirm und eine Senderliste,
+  ohne Startseite.
+- **Jetzt (0.2.0):** die komplette Original-Oberfläche – Startseite, Kacheln,
+  Filme, Serien, Programmführer, Favoriten – genau wie auf dem PC.
 
-### 2. Neues Repository (Projekt) anlegen
-- Oben rechts auf das **+** klicken → **New repository**.
-- **Repository name:** z. B. `ex-iptv`
-- Auf **privat** oder **öffentlich** stellen (beides geht).
-- **Nicht** „Add a README" anhaken.
-- Auf **Create repository** klicken.
+---
 
-### 3. Die Projektdateien hochladen
-- Entpacke die erhaltene ZIP-Datei auf deinem Computer.
-- Auf der neuen GitHub-Seite auf **uploading an existing file** klicken
-  (oder **Add file → Upload files**).
-- Ziehe **den gesamten Inhalt** des entpackten Ordners in das Browserfenster.
+## Teil 1 – Das aktualisierte Projekt zu GitHub bringen
 
-> **Wichtig:** Es muss ein Ordner namens **`.github`** mit dabei sein (er enthält
-> die Bau-Anweisung). Falls dein Datei-Manager Ordner mit einem Punkt am Anfang
-> ausblendet, schalte „versteckte Dateien anzeigen" ein – sonst startet der Bau nicht.
+Du hast das Projekt **AndroidIPTV2026** schon mit GitHub Desktop eingerichtet.
+Wir tauschen jetzt nur die alten Dateien gegen die neuen aus.
 
-- Unten auf **Commit changes** klicken.
+### 1. Den Projektordner öffnen
+In **GitHub Desktop** oben auf **Repository → Show in Explorer**. Es öffnet sich
+der Ordner, den GitHub Desktop verwaltet (darin liegt auch der versteckte
+`.git`-Ordner).
+
+### 2. Die alten Projektdateien löschen
+Markiere im geöffneten Ordner **alles außer dem versteckten `.git`-Ordner** und
+lösche es. (Den `.git`-Ordner unbedingt behalten – er ist die Verbindung zu
+GitHub. Falls versteckte Ordner nicht sichtbar sind: im Explorer oben
+**Anzeigen → Einblenden → Ausgeblendete Elemente**.)
+
+### 3. Die neuen Dateien einfügen
+- Entpacke die neue ZIP-Datei, die du gerade erhalten hast.
+- Öffne den entpackten Ordner, markiere **den gesamten Inhalt** (Strg+A) –
+  also die Ordner `app`, `.github`, `gradle` und die losen Dateien.
+- Kopiere alles (Strg+C) und füge es in den GitHub-Projektordner ein (Strg+V).
+
+> Achte wieder darauf, dass der versteckte Ordner **`.github`** mit dabei ist.
+
+### 4. Hochladen
+Geh zurück in **GitHub Desktop**. Links unter „Changes" erscheinen jetzt viele
+geänderte Dateien. Schreib unten ins Feld **Summary** z. B.
+`Echte Oberflaeche eingebaut`, klick auf **Commit to main** und danach oben auf
+**Push origin**.
 
 ---
 
 ## Teil 2 – Die App wird automatisch gebaut
 
-Sobald die Dateien hochgeladen sind, startet der Bau von selbst.
-
-- Klicke oben auf den Reiter **Actions**.
-- Du siehst einen Lauf namens **APK bauen**. Ein gelber Punkt heißt „läuft gerade",
-  ein grüner Haken heißt „fertig". Der erste Bau dauert ca. **3–6 Minuten**.
-- Falls dort nichts erscheint: auf **Actions** → links **APK bauen** → rechts
-  **Run workflow** klicken, um den Bau von Hand zu starten.
+- Geh auf github.com in dein Projekt, Reiter **Actions**.
+- Der Lauf **APK bauen** startet von selbst (gelber Punkt = läuft,
+  grüner Haken = fertig). Dauer: ca. 4–7 Minuten.
 
 ### Die fertige App herunterladen
-- Klicke auf den fertigen (grünen) Lauf.
-- Ganz unten unter **Artifacts** liegt eine Datei namens **EX-IPTV-APK**.
-- Lade sie herunter und **entpacke** sie – darin liegt die Datei **`app-debug.apk`**.
-
-Das ist deine Installationsdatei.
+- Auf den fertigen (grünen) Lauf klicken.
+- Unten unter **Artifacts** die Datei **EX-IPTV-APK** herunterladen und
+  entpacken – darin liegt **app-debug.apk**.
 
 ---
 
-## Teil 3 – App auf die Geräte bringen
+## Teil 3 – Installieren
 
-### Auf dem Handy / Tablet
-1. Übertrage die `app-debug.apk` aufs Handy (z. B. per Download, USB oder Messenger).
-2. Öffne die Datei. Android fragt nach der Erlaubnis, Apps aus „unbekannten Quellen"
-   zu installieren – diese einmalig erteilen.
-3. Auf **Installieren** tippen. Fertig – die App **EX-IPTV** liegt im App-Menü.
+Genau wie bei der ersten Version:
 
-### Auf dem Fire-TV-Stick
-1. Am Fire-TV: **Einstellungen → Mein Fire-TV → Entwickleroptionen** →
-   **Apps unbekannter Herkunft** einschalten.
-2. Installiere aus dem Amazon-App-Store die kostenlose App **Downloader**.
-3. Lade die `app-debug.apk` irgendwo hoch, wo man sie per Link herunterladen kann
-   (z. B. ein eigener Cloud-Speicher), und gib diesen Link in **Downloader** ein.
-4. Die App lädt und installiert sich. EX-IPTV erscheint dann unter „Apps & Sender".
+- **Handy:** APK übertragen, antippen, „unbekannte Quellen" einmalig erlauben,
+  installieren.
+- **Fire-TV-Stick:** Einstellungen → Mein Fire-TV → Entwickleroptionen →
+  „Apps unbekannter Herkunft" einschalten; mit der **Downloader**-App über einen
+  Link installieren.
+- **Android-TV:** unbekannte Quellen erlauben; per **Downloader** oder USB-Stick.
 
-### Auf dem Android-Fernseher
-1. **Einstellungen → Geräteeinstellungen → Sicherheit** → unbekannte Quellen erlauben.
-2. Genau wie beim Fire-TV mit der **Downloader**-App oder einem USB-Stick installieren.
+Die App ist deutlich größer als vorher (ca. 25–30 MB), weil der komplette Server
+mit eingebaut ist. Das ist normal.
 
 ---
 
 ## Teil 4 – Erste Nutzung
 
-Beim ersten Start fragt die App nach:
-- **Server-Adresse** (z. B. `http://deinserver.de:8080`)
-- **Benutzername**
-- **Passwort**
+Beim Start zeigt die App kurz „Wird gestartet …", während der Server hochfährt
+(ein paar Sekunden). Dann erscheint die **echte Startseite** mit Logo und Kacheln.
 
-Diese bekommst du von deinem IPTV-Anbieter. Nach der Anmeldung siehst du links die
-Kategorien und rechts die Sender. Mit **Fingertipp** (Handy) oder **Fernbedienung**
-(TV/Fire-Stick, Steuerkreuz + OK-Taste) wählst du einen Sender aus.
+Beim ersten Mal ist noch keine Senderliste hinterlegt. Über die Oberfläche
+(genau wie auf dem PC) fügst du deine Liste hinzu – entweder mit
+**Xtream-Zugangsdaten** (Server, Benutzer, Passwort) oder als **M3U-Link**.
+Danach stehen Live-TV, Filme und Serien zur Verfügung.
 
 ---
 
 ## Bedienung
 
 - **Handy:** alles per Fingertipp.
-- **Fernseher / Fire-Stick:** mit der Fernbedienung. Das aktuell ausgewählte Feld
-  ist violett hervorgehoben. Mit dem Steuerkreuz bewegst du die Auswahl, mit **OK**
-  bestätigst du, mit **Zurück** verlässt du die Wiedergabe.
+- **Fernseher / Fire-Stick:** mit der Fernbedienung (Steuerkreuz + OK,
+  Zurück-Taste). Die Oberfläche ist auf Fokus-Steuerung ausgelegt.
 
 ---
 
-## Was diese erste Version kann (und was noch kommt)
+## Wichtig: Was schon geht und was noch Feinarbeit braucht
 
-Diese erste Fassung (0.1.0) ist bewusst schlank und deckt den Kern ab:
-**Anmeldung mit Xtream-Zugangsdaten und Live-Fernsehen.**
+Der größte Schritt ist geschafft – die **Oberfläche ist jetzt identisch** mit der
+Windows-App. Was auf deinem Gerät noch erprobt werden muss, ist die
+**Videowiedergabe im eingebauten Browserfenster**: ob die Sender so flüssig
+laufen wie auf dem PC.
 
-Noch **nicht** enthalten und für die nächsten Versionen geplant:
-Filme und Serien (VOD), Programmführer (EPG), Favoriten, M3U-Listen, Aufnahmen,
-Suche – also schrittweise das, was die Windows-Version schon kann.
+Bitte teste nach der Installation vor allem:
+1. Erscheint die Startseite mit Logo und Kacheln?
+2. Kannst du eine Senderliste hinzufügen und die Sender sehen?
+3. Spielt ein Sender ab?
+
+Falls die Startseite erscheint, aber ein Sender nicht abspielt oder ruckelt:
+Das ist der erwartete nächste Baustein. Beschreib mir genau, was passiert
+(am besten mit Screenshot), dann arbeite ich gezielt an der Wiedergabe weiter –
+so wie wir es bei der Windows-App über viele Runden gemacht haben.
+
+**Noch nicht enthalten:** die höchsten Umwandlungsstufen (ffmpeg) für Sender mit
+ungewöhnlichen Tonformaten. Die direkte Wiedergabe und der Formatwechsel sind
+dabei; ffmpeg wird später nachgerüstet, falls einzelne Sender es brauchen.
 
 ---
 
 ## Wenn der Bau fehlschlägt
 
-Da diese App neu ist und nicht auf jedem Gerät vorab getestet werden konnte, kann
-der allererste Bau in der Cloud einen Fehler zeigen (das ist normal bei einer
-Erstfassung). In dem Fall:
-
-1. Gehe zu **Actions** → auf den **roten** (fehlgeschlagenen) Lauf klicken.
-2. Klicke auf den Schritt **Debug-APK bauen**, sodass die rote Fehlermeldung
+1. **Actions** → auf den **roten** Lauf klicken.
+2. Auf den Schritt **Debug-APK bauen** klicken, damit die Fehlermeldung
    sichtbar wird.
-3. Kopiere die Fehlermeldung (oder mache einen Screenshot) und schicke sie mir.
-
-Ich behebe den Fehler dann gezielt – genau wie wir es bei der Windows-Version
-gemacht haben, nur dass das Bauen hier in der Cloud statt auf deinem PC passiert.
+3. Fehlermeldung kopieren oder Screenshot machen und mir schicken – ich behebe
+   es gezielt.
