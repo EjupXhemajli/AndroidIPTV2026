@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -37,6 +38,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import java.net.HttpURLConnection
 import java.net.URL
@@ -58,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     private var isVod = false                // Film/Serie statt Live
     private var vodTicker: Runnable? = null   // meldet VOD-Position an die Oberflaeche
     private var resumeMs = 0L                 // Fortsetz-Punkt fuer VOD
+    private var aspectMode = 0                 // 0=Anpassen 1=Zoom/Vollbild 2=Strecken
     private var currentKey: String = ""
     private var attempts = 0                 // Fehlversuche für den aktuellen Sender
     private val maxAttempts = 3              // nach 3 Fehlversuchen -> nächster Sender
@@ -335,6 +338,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
         playerView?.useController = true
+        playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        aspectMode = 0
         playerView?.setShowFastForwardButton(true)
         playerView?.setShowRewindButton(true)
         playerView?.controllerShowTimeoutMs = 3500
@@ -367,6 +372,44 @@ class MainActivity : AppCompatActivity() {
     private fun stopVodTicker() {
         vodTicker?.let { handler.removeCallbacks(it) }
         vodTicker = null
+    }
+
+    /** Bildformat umschalten: Anpassen -> Zoom (Vollbild) -> Strecken. */
+    private fun cycleAspect() {
+        val pv = playerView ?: return
+        aspectMode = (aspectMode + 1) % 3
+        val label: String
+        pv.resizeMode = when (aspectMode) {
+            1 -> { label = "Zoom (Vollbild)"; AspectRatioFrameLayout.RESIZE_MODE_ZOOM }
+            2 -> { label = "Strecken"; AspectRatioFrameLayout.RESIZE_MODE_FILL }
+            else -> { label = "Anpassen"; AspectRatioFrameLayout.RESIZE_MODE_FIT }
+        }
+        flashTitle("Bildformat: $label")
+    }
+
+    /** Nächste Tonspur wählen (mehrsprachige Filme). */
+    private fun cycleAudio() {
+        val p = player ?: return
+        val groups = ArrayList<androidx.media3.common.Tracks.Group>()
+        for (g in p.currentTracks.groups) if (g.type == C.TRACK_TYPE_AUDIO) groups.add(g)
+        // Alle abspielbaren Tonspuren flach auflisten
+        val gs = ArrayList<androidx.media3.common.Tracks.Group>()
+        val tis = ArrayList<Int>()
+        for (g in groups) for (i in 0 until g.length) if (g.isTrackSupported(i)) { gs.add(g); tis.add(i) }
+        if (gs.size <= 1) { flashTitle("Nur eine Tonspur"); return }
+        var cur = -1
+        for (k in gs.indices) if (gs[k].isTrackSelected(tis[k])) { cur = k; break }
+        val next = (cur + 1) % gs.size
+        try {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setOverrideForType(TrackSelectionOverride(gs[next].mediaTrackGroup, tis[next]))
+                .build()
+        } catch (e: Exception) { return }
+        val fmt = gs[next].getTrackFormat(tis[next])
+        val parts = ArrayList<String>()
+        if (!fmt.label.isNullOrBlank()) parts.add(fmt.label!!)
+        if (!fmt.language.isNullOrBlank()) parts.add(fmt.language!!)
+        flashTitle("Ton: " + (if (parts.isEmpty()) "Spur ${next + 1}" else parts.joinToString(" · ")))
     }
 
     private fun retrySame() {
@@ -655,8 +698,11 @@ class MainActivity : AppCompatActivity() {
                     web.evaluateJavascript("window.EXNATIVE && EXNATIVE.vodClosed()", null)
                     return true
                 }
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    playerView?.showController(); return true
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    cycleAspect(); return true
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    cycleAudio(); return true
                 }
                 else -> {}
             }

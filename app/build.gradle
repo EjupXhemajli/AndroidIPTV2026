@@ -11,16 +11,31 @@ android {
         applicationId "com.exiptv.player"
         minSdk 21
         targetSdk 34
-        versionCode 8
-        versionName "0.4.2"
+        versionCode 10
+        versionName "0.4.4"
         // Nur die beiden Android-Architekturen, für die wir den Server haben
         ndk {
             abiFilters 'arm64-v8a', 'armeabi-v7a'
         }
     }
 
+    // Fester Signaturschlüssel -> jede APK ist gleich signiert, Updates
+    // installieren sich OHNE vorheriges Deinstallieren (Daten bleiben erhalten).
+    signingConfigs {
+        fixed {
+            storeFile file('exiptv.jks')
+            storePassword 'exiptv123'
+            keyAlias 'exiptv'
+            keyPassword 'exiptv123'
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig signingConfigs.fixed
+        }
         release {
+            signingConfig signingConfigs.fixed
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
