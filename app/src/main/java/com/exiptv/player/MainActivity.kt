@@ -55,6 +55,9 @@ class MainActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private var playerView: PlayerView? = null
     private var playerVisible = false
+    private var isVod = false                // Film/Serie statt Live
+    private var vodTicker: Runnable? = null   // meldet VOD-Position an die Oberflaeche
+    private var resumeMs = 0L                 // Fortsetz-Punkt fuer VOD
     private var currentKey: String = ""
     private var attempts = 0                 // Fehlversuche für den aktuellen Sender
     private val maxAttempts = 3              // nach 3 Fehlversuchen -> nächster Sender
@@ -175,6 +178,8 @@ class MainActivity : AppCompatActivity() {
         val p = ExoPlayer.Builder(this)
             .setLoadControl(loadControl)
             .setRenderersFactory(renderers)
+            .setSeekBackIncrementMs(15_000)
+            .setSeekForwardIncrementMs(15_000)
             .build()
         p.playWhenReady = true
         // Hält Netzwerk/CPU während der Wiedergabe wach -> keine Aussetzer durch
@@ -207,7 +212,11 @@ class MainActivity : AppCompatActivity() {
                         if (bufferingSince == 0L) bufferingSince = System.currentTimeMillis()
                     }
                     Player.STATE_ENDED -> {
-                        handleFailure("Stream beendet")
+                        if (isVod) {
+                            web.evaluateJavascript("window.EXNATIVE && EXNATIVE.vodEnded()", null)
+                        } else {
+                            handleFailure("Stream beendet")
+                        }
                     }
                     else -> {}
                 }
@@ -286,6 +295,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun startNative(url: String, title: String, key: String, kind: String) {
         val p = player ?: return
+        isVod = false
+        stopVodTicker()
+        playerView?.useController = false
         if (key != currentKey) {
             currentKey = key
             attempts = 0
@@ -302,6 +314,59 @@ class MainActivity : AppCompatActivity() {
         showPlayer()
         flashTitle(title)
         startWatchdog()
+    }
+
+    /** Film/Serie nativ abspielen: mit Bedienleiste (Spulen), Fortsetz-Punkt und
+     *  Positions-Meldung an die Oberflaeche fuer „Weiter schauen". */
+    private fun startNativeVod(url: String, title: String, key: String, kind: String, resumeSec: Long) {
+        val p = player ?: return
+        isVod = true
+        stopWatchdog()                  // Live-Wächter (Senderwechsel) gilt fuer VOD nicht
+        currentKey = key
+        attempts = 0
+        resumeMs = (if (resumeSec > 0) resumeSec * 1000L else 0L)
+        lastUrl = url; lastTitle = title; lastKind = kind
+        try {
+            p.setMediaSource(buildSource(url, kind))
+            p.prepare()
+            if (resumeMs > 0) p.seekTo(resumeMs)
+            p.playWhenReady = true
+        } catch (e: Exception) {
+            return
+        }
+        playerView?.useController = true
+        playerView?.setShowFastForwardButton(true)
+        playerView?.setShowRewindButton(true)
+        playerView?.controllerShowTimeoutMs = 3500
+        showPlayer()
+        playerView?.requestFocus()
+        flashTitle(title)
+        startVodTicker()
+    }
+
+    private fun startVodTicker() {
+        stopVodTicker()
+        val r = object : Runnable {
+            override fun run() {
+                if (!playerVisible || !isVod) return
+                val p = player
+                if (p != null && p.playbackState == Player.STATE_READY) {
+                    val pos = p.currentPosition / 1000
+                    val dur = if (p.duration > 0) p.duration / 1000 else 0
+                    if (pos >= 0 && dur > 0) {
+                        web.evaluateJavascript("window.EXNATIVE && EXNATIVE.vodPos($pos,$dur)", null)
+                    }
+                }
+                handler.postDelayed(this, 8000)
+            }
+        }
+        vodTicker = r
+        handler.postDelayed(r, 8000)
+    }
+
+    private fun stopVodTicker() {
+        vodTicker?.let { handler.removeCallbacks(it) }
+        vodTicker = null
     }
 
     private fun retrySame() {
@@ -357,6 +422,10 @@ class MainActivity : AppCompatActivity() {
                 // 2. Neuversuch: Player vollständig neu erstellen (behebt Hänger)
                 handler.postDelayed({ if (playerVisible) hardRecover() }, 2500)
             }
+        } else if (isVod) {
+            // Film/Serie: NICHT zum „nächsten Sender" springen. Nach den
+            // Neuversuchen den Zähler zurücksetzen und stehen lassen.
+            attempts = 0
         } else {
             attempts = 0
             consecutiveSkips++
@@ -383,12 +452,16 @@ class MainActivity : AppCompatActivity() {
     private fun closeNative() {
         playerVisible = false
         stopWatchdog()
+        stopVodTicker()
         titleHide?.let { handler.removeCallbacks(it) }
         titleBar?.visibility = android.view.View.GONE
         try { player?.stop() } catch (e: Exception) {}
         try { player?.clearMediaItems() } catch (e: Exception) {}
+        playerView?.useController = false
         playerView?.visibility = android.view.View.GONE
         playerView?.keepScreenOn = false
+        isVod = false
+        resumeMs = 0
         currentKey = ""
         attempts = 0
         consecutiveSkips = 0
@@ -483,6 +556,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun playVod(url: String, title: String, key: String, kind: String, resumeSec: Int) {
+            handler.post { startNativeVod(url, title, key, kind, resumeSec.toLong()) }
+        }
+
+        @JavascriptInterface
+        fun vodSeek(sec: Int) {
+            handler.post {
+                if (isVod) { try { player?.seekTo(sec.toLong() * 1000L) } catch (e: Exception) {} }
+            }
+        }
+
+        @JavascriptInterface
         fun stop() {
             handler.post { closeNative() }
         }
@@ -541,8 +626,44 @@ class MainActivity : AppCompatActivity() {
     // ---------------- Fernbedienung ----------------
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // Läuft der native Player? Dann steuern die Tasten den Player.
-        if (playerVisible && event.action == KeyEvent.ACTION_DOWN) {
+        // Läuft der native VOD-Player (Film/Serie)? Eigene Steuerung: spulen + Pause.
+        if (playerVisible && isVod && event.action == KeyEvent.ACTION_DOWN) {
+            val p = player
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                    if (p != null) {
+                        val to = (p.currentPosition - 15_000).coerceAtLeast(0)
+                        p.seekTo(to); playerView?.showController()
+                    }
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                    if (p != null) {
+                        val dur = if (p.duration > 0) p.duration else Long.MAX_VALUE
+                        val to = (p.currentPosition + 15_000).coerceAtMost(dur)
+                        p.seekTo(to); playerView?.showController()
+                    }
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                    if (p != null) { p.playWhenReady = !p.playWhenReady; playerView?.showController() }
+                    return true
+                }
+                KeyEvent.KEYCODE_BACK -> {
+                    closeNative()
+                    web.evaluateJavascript("window.EXNATIVE && EXNATIVE.vodClosed()", null)
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    playerView?.showController(); return true
+                }
+                else -> {}
+            }
+        }
+
+        // Läuft der native Live-Player? Dann steuern die Tasten den Player.
+        if (playerVisible && !isVod && event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP -> {
                     web.evaluateJavascript("window.EXNATIVE && EXNATIVE.zap(-1)", null); return true
@@ -591,7 +712,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (!isTv && keyCode == KeyEvent.KEYCODE_BACK) {
-            if (playerVisible) { closeNative(); web.evaluateJavascript("window.EXNATIVE && EXNATIVE.closed()", null); return true }
+            if (playerVisible) {
+                closeNative()
+                val cb = if (isVod) "EXNATIVE.vodClosed()" else "EXNATIVE.closed()"
+                web.evaluateJavascript("window.EXNATIVE && $cb", null)
+                return true
+            }
             if (::web.isInitialized && web.canGoBack()) { web.goBack(); return true }
         }
         return super.onKeyDown(keyCode, event)
@@ -609,6 +735,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         stopWatchdog()
+        stopVodTicker()
         titleHide?.let { handler.removeCallbacks(it) }
         try { player?.release() } catch (e: Exception) {}
         player = null
