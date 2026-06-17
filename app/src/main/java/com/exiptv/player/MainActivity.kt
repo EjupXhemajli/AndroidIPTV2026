@@ -19,6 +19,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.app.AlertDialog
 import android.webkit.JavascriptInterface
 import android.widget.Button
 import android.widget.FrameLayout
@@ -550,6 +551,9 @@ class MainActivity : AppCompatActivity() {
                 it.seekTo((it.currentPosition + 15_000).coerceAtMost(dur))
             }
         })
+        box.addView(menuButton("↔  Zeitleiste / schnell spulen (◀ ▶)") {
+            closeVodMenu(); playerView?.showController()
+        })
         box.addView(menuButton("Bildformat: " + aspectLabel()) { cycleAspect(); buildMenu() })
 
         menuHeader("Lautstärke (" + Math.round((p?.volume ?: 1f) * 100) + " %)")
@@ -980,13 +984,25 @@ class MainActivity : AppCompatActivity() {
             if (event.keyCode == KeyEvent.KEYCODE_BACK) {
                 web.evaluateJavascript("(window.EXTV && EXTV.key('back'))") { result ->
                     if (result == null || result == "false" || result == "null") {
-                        handler.post { if (web.canGoBack()) web.goBack() else finish() }
+                        handler.post { if (web.canGoBack()) web.goBack() else confirmExit() }
                     }
                 }
                 return true
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    // Beenden-Nachfrage (Ja/Nein) statt sofortigem Schließen der App.
+    private fun confirmExit() {
+        if (isFinishing) return
+        AlertDialog.Builder(this)
+            .setTitle("Beenden")
+            .setMessage("Möchten Sie die App beenden?")
+            .setPositiveButton("Ja") { _, _ -> finishAffinity() }
+            .setNegativeButton("Nein") { d, _ -> d.dismiss() }
+            .setCancelable(true)
+            .show()
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

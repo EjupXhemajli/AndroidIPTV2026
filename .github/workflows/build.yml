@@ -11,6 +11,30 @@ jobs:
       - name: Code holen
         uses: actions/checkout@v4
 
+      - name: ZIP(s) entpacken (auch ZIP-in-ZIP) und Projekt finden
+        shell: bash
+        run: |
+          set -e
+          rm -rf _src && mkdir -p _src
+          shopt -s nullglob
+          cp *.zip _src/ 2>/dev/null || true
+          if [ -z "$(ls -A _src)" ]; then echo "Keine .zip im Repo gefunden!"; exit 1; fi
+          # bis zu 4 Ebenen tief entpacken (falls die ZIP weitere ZIPs enthaelt)
+          for i in 1 2 3 4; do
+            any=0
+            while IFS= read -r z; do
+              echo "Entpacke: $z"
+              unzip -q -o "$z" -d "$(dirname "$z")" && rm -f "$z"
+              any=1
+            done < <(find _src -name '*.zip')
+            [ "$any" = "0" ] && break
+          done
+          SG="$(find _src -name settings.gradle | head -n1)"
+          if [ -z "$SG" ]; then echo "settings.gradle in der ZIP nicht gefunden!"; find _src | head -50; exit 1; fi
+          ROOT="$(dirname "$SG")"
+          echo "Projektwurzel: $ROOT"
+          echo "PROJ_ROOT=$ROOT" >> "$GITHUB_ENV"
+
       - name: Java 17 einrichten
         uses: actions/setup-java@v4
         with:
@@ -26,11 +50,12 @@ jobs:
           gradle-version: '8.7'
 
       - name: Debug-APK bauen
+        working-directory: ${{ env.PROJ_ROOT }}
         run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: APK hochladen
         uses: actions/upload-artifact@v4
         with:
           name: EX-IPTV-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJ_ROOT }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
