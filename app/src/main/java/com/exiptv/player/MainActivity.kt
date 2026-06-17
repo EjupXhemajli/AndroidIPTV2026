@@ -20,7 +20,10 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.JavascriptInterface
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -61,6 +64,12 @@ class MainActivity : AppCompatActivity() {
     private var vodTicker: Runnable? = null   // meldet VOD-Position an die Oberflaeche
     private var resumeMs = 0L                 // Fortsetz-Punkt fuer VOD
     private var aspectMode = 0                 // 0=Anpassen 1=Zoom/Vollbild 2=Strecken
+
+    // Natives Einstellungsmenü im Player (OK-Taste)
+    private var menuScrim: FrameLayout? = null
+    private var menuBox: LinearLayout? = null
+    private var menuOpen = false
+    private var historyCleared = false         // WebView-Verlauf einmal leeren (Splash raus)
     private var currentKey: String = ""
     private var attempts = 0                 // Fehlversuche für den aktuellen Sender
     private val maxAttempts = 3              // nach 3 Fehlversuchen -> nächster Sender
@@ -137,6 +146,14 @@ class MainActivity : AppCompatActivity() {
             ) {
                 if (request?.isForMainFrame == true && !loaded) {
                     handler.postDelayed({ tryLoad() }, 700)
+                }
+            }
+            override fun onPageFinished(view: WebView?, url: String?) {
+                // Den Start-/Wartebildschirm aus dem Verlauf entfernen, sonst landet
+                // „Zurück" auf der Startseite wieder beim „Wird gestartet …".
+                if (url != null && url.startsWith(baseUrl) && !historyCleared) {
+                    historyCleared = true
+                    view?.clearHistory()
                 }
             }
         }
@@ -412,6 +429,157 @@ class MainActivity : AppCompatActivity() {
         flashTitle("Ton: " + (if (parts.isEmpty()) "Spur ${next + 1}" else parts.joinToString(" · ")))
     }
 
+    // ----- Natives Einstellungsmenü im Player (OK-Taste) -----
+
+    private data class Trk(val type: Int, val group: androidx.media3.common.Tracks.Group, val index: Int,
+                           val label: String, val selected: Boolean)
+
+    private fun trackList(type: Int): List<Trk> {
+        val p = player ?: return emptyList()
+        val out = ArrayList<Trk>()
+        var n = 1
+        for (g in p.currentTracks.groups) {
+            if (g.type != type) continue
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val f = g.getTrackFormat(i)
+                val parts = ArrayList<String>()
+                if (!f.label.isNullOrBlank()) parts.add(f.label!!)
+                if (!f.language.isNullOrBlank() && f.language != "und") parts.add(f.language!!)
+                val lbl = if (parts.isEmpty()) "Spur $n" else parts.joinToString(" · ")
+                out.add(Trk(type, g, i, lbl, g.isTrackSelected(i)))
+                n++
+            }
+        }
+        return out
+    }
+
+    private fun selectTrack(t: Trk) {
+        val p = player ?: return
+        try {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(t.type, false)
+                .setOverrideForType(TrackSelectionOverride(t.group.mediaTrackGroup, t.index))
+                .build()
+        } catch (e: Exception) {}
+    }
+
+    private fun disableSubtitles() {
+        val p = player ?: return
+        try {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+        } catch (e: Exception) {}
+    }
+
+    private fun aspectLabel(): String = when (aspectMode) {
+        1 -> "Zoom (Vollbild)"
+        2 -> "Strecken"
+        else -> "Anpassen"
+    }
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun ensureMenu() {
+        if (menuScrim != null) return
+        val scrim = FrameLayout(this)
+        scrim.setBackgroundColor(Color.parseColor("#CC05070C"))
+        scrim.visibility = android.view.View.GONE
+        scrim.isClickable = true
+        val sv = ScrollView(this)
+        sv.layoutParams = FrameLayout.LayoutParams(dp(560), FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER)
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        box.setPadding(dp(20), dp(20), dp(20), dp(20))
+        sv.addView(box)
+        scrim.addView(sv)
+        root.addView(scrim, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        menuScrim = scrim; menuBox = box
+    }
+
+    private fun menuHeader(text: String) {
+        val tv = TextView(this)
+        tv.text = text
+        tv.setTextColor(Color.parseColor("#9FB0C9"))
+        tv.textSize = 13f
+        tv.setPadding(dp(4), dp(14), dp(4), dp(6))
+        menuBox?.addView(tv)
+    }
+
+    private fun menuButton(text: String, onClick: () -> Unit): Button {
+        val b = Button(this)
+        b.text = text
+        b.isAllCaps = false
+        b.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+        b.setTextColor(Color.WHITE)
+        b.textSize = 16f
+        b.setPadding(dp(20), dp(16), dp(20), dp(16))
+        val normal = android.graphics.drawable.GradientDrawable().apply {
+            setColor(Color.parseColor("#1C2234")); cornerRadius = dp(12).toFloat()
+        }
+        val focused = android.graphics.drawable.GradientDrawable().apply {
+            setColor(Color.parseColor("#8B5CF6")); cornerRadius = dp(12).toFloat()
+        }
+        val sld = android.graphics.drawable.StateListDrawable()
+        sld.addState(intArrayOf(android.R.attr.state_focused), focused)
+        sld.addState(intArrayOf(), normal)
+        b.background = sld
+        val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        lp.bottomMargin = dp(8)
+        b.layoutParams = lp
+        b.setOnClickListener { onClick() }
+        return b
+    }
+
+    private fun buildMenu() {
+        val box = menuBox ?: return
+        box.removeAllViews()
+        val p = player
+
+        menuHeader("Wiedergabe")
+        box.addView(menuButton(if (p?.playWhenReady == true) "⏸  Pause" else "▶  Fortsetzen") {
+            p?.let { it.playWhenReady = !it.playWhenReady }; buildMenu()
+        })
+        box.addView(menuButton("Bildformat: " + aspectLabel()) { cycleAspect(); buildMenu() })
+
+        val auds = trackList(C.TRACK_TYPE_AUDIO)
+        if (auds.size > 1) {
+            menuHeader("Tonspur")
+            for (t in auds) box.addView(menuButton((if (t.selected) "●  " else "○  ") + t.label) {
+                selectTrack(t); buildMenu()
+            })
+        }
+
+        val subs = trackList(C.TRACK_TYPE_TEXT)
+        if (subs.isNotEmpty()) {
+            menuHeader("Untertitel")
+            val anySub = subs.any { it.selected }
+            box.addView(menuButton((if (!anySub) "●  " else "○  ") + "Aus") { disableSubtitles(); buildMenu() })
+            for (t in subs) box.addView(menuButton((if (t.selected) "●  " else "○  ") + t.label) {
+                selectTrack(t); buildMenu()
+            })
+        }
+
+        menuHeader("")
+        box.addView(menuButton("Schließen") { closeVodMenu() })
+    }
+
+    private fun openVodMenu() {
+        ensureMenu()
+        buildMenu()
+        playerView?.hideController()
+        menuScrim?.visibility = android.view.View.VISIBLE
+        menuOpen = true
+        handler.post { menuBox?.let { if (it.childCount > 1) it.getChildAt(1)?.requestFocus() } }
+    }
+
+    private fun closeVodMenu() {
+        menuScrim?.visibility = android.view.View.GONE
+        menuOpen = false
+        playerView?.requestFocus()
+    }
+
     private fun retrySame() {
         val p = player ?: return
         try {
@@ -496,6 +664,7 @@ class MainActivity : AppCompatActivity() {
         playerVisible = false
         stopWatchdog()
         stopVodTicker()
+        closeVodMenu()
         titleHide?.let { handler.removeCallbacks(it) }
         titleBar?.visibility = android.view.View.GONE
         try { player?.stop() } catch (e: Exception) {}
@@ -669,7 +838,16 @@ class MainActivity : AppCompatActivity() {
     // ---------------- Fernbedienung ----------------
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // Läuft der native VOD-Player (Film/Serie)? Eigene Steuerung: spulen + Pause.
+        // Ist das Einstellungsmenü offen? Zurück schließt es; alles andere
+        // übernimmt die native Tasten-Navigation zwischen den Knöpfen.
+        if (playerVisible && isVod && menuOpen) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_BACK) {
+                closeVodMenu(); return true
+            }
+            return super.dispatchKeyEvent(event)
+        }
+
+        // Läuft der native VOD-Player (Film/Serie)? Spulen + OK öffnet das Menü.
         if (playerVisible && isVod && event.action == KeyEvent.ACTION_DOWN) {
             val p = player
             when (event.keyCode) {
@@ -689,7 +867,11 @@ class MainActivity : AppCompatActivity() {
                     return true
                 }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
-                KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                    openVodMenu(); return true     // OK -> Einstellungsmenü
+                }
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY,
+                KeyEvent.KEYCODE_MEDIA_PAUSE -> {
                     if (p != null) { p.playWhenReady = !p.playWhenReady; playerView?.showController() }
                     return true
                 }
@@ -698,11 +880,8 @@ class MainActivity : AppCompatActivity() {
                     web.evaluateJavascript("window.EXNATIVE && EXNATIVE.vodClosed()", null)
                     return true
                 }
-                KeyEvent.KEYCODE_DPAD_UP -> {
-                    cycleAspect(); return true
-                }
-                KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    cycleAudio(); return true
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    playerView?.showController(); return true
                 }
                 else -> {}
             }
