@@ -48,6 +48,12 @@ class ServerService : Service() {
                 val pb = ProcessBuilder(binPath.absolutePath)
                 pb.environment()["EXIPTV_DATA"] = dataDir
                 pb.environment()["HOME"] = dataDir
+                // Aufnahmen in den externen App-Speicher (mehr Platz, über die
+                // Dateien-App erreichbar, ohne zusätzliche Berechtigung).
+                val recBase = getExternalFilesDir(null) ?: filesDir
+                val recDir = File(recBase, "Aufnahmen")
+                recDir.mkdirs()
+                pb.environment()["EXIPTV_REC"] = recDir.absolutePath
                 pb.redirectErrorStream(true)
                 pb.directory(filesDir)
                 val p = pb.start()

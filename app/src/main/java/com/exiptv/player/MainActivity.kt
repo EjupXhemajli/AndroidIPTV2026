@@ -541,11 +541,24 @@ class MainActivity : AppCompatActivity() {
         box.addView(menuButton(if (p?.playWhenReady == true) "⏸  Pause" else "▶  Fortsetzen") {
             p?.let { it.playWhenReady = !it.playWhenReady }; buildMenu()
         })
+        box.addView(menuButton("⏪  15 Sekunden zurück") {
+            p?.let { it.seekTo((it.currentPosition - 15_000).coerceAtLeast(0)) }
+        })
+        box.addView(menuButton("15 Sekunden vor  ⏩") {
+            p?.let {
+                val dur = if (it.duration > 0) it.duration else Long.MAX_VALUE
+                it.seekTo((it.currentPosition + 15_000).coerceAtMost(dur))
+            }
+        })
         box.addView(menuButton("Bildformat: " + aspectLabel()) { cycleAspect(); buildMenu() })
+
+        menuHeader("Lautstärke (" + Math.round((p?.volume ?: 1f) * 100) + " %)")
+        box.addView(menuButton("🔊  Lauter") { setVol(0.1f); buildMenu() })
+        box.addView(menuButton("🔉  Leiser") { setVol(-0.1f); buildMenu() })
 
         val auds = trackList(C.TRACK_TYPE_AUDIO)
         if (auds.size > 1) {
-            menuHeader("Tonspur")
+            menuHeader("Sprache / Tonspur")
             for (t in auds) box.addView(menuButton((if (t.selected) "●  " else "○  ") + t.label) {
                 selectTrack(t); buildMenu()
             })
@@ -561,8 +574,49 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
+        val vids = videoTrackList()
+        if (vids.size > 1) {
+            menuHeader("Videoqualität")
+            val anyVid = vids.any { it.selected }
+            box.addView(menuButton((if (!anyVid) "●  " else "○  ") + "Automatisch (beste)") { autoVideo(); buildMenu() })
+            for (t in vids) box.addView(menuButton((if (t.selected) "●  " else "○  ") + t.label) {
+                selectTrack(t); buildMenu()
+            })
+        }
+
         menuHeader("")
         box.addView(menuButton("Schließen") { closeVodMenu() })
+    }
+
+    private fun setVol(delta: Float) {
+        val p = player ?: return
+        p.volume = (p.volume + delta).coerceIn(0f, 1f)
+    }
+
+    /** Videospuren mit Auflösung/Bildrate (für Qualitätsauswahl, v. a. bei HLS). */
+    private fun videoTrackList(): List<Trk> {
+        val p = player ?: return emptyList()
+        val out = ArrayList<Trk>()
+        for (g in p.currentTracks.groups) {
+            if (g.type != C.TRACK_TYPE_VIDEO) continue
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val f = g.getTrackFormat(i)
+                val h = if (f.height > 0) "${f.height}p" else "Spur"
+                val fps = if (f.frameRate > 0) " · " + Math.round(f.frameRate) + " fps" else ""
+                out.add(Trk(C.TRACK_TYPE_VIDEO, g, i, h + fps, g.isTrackSelected(i)))
+            }
+        }
+        return out
+    }
+
+    private fun autoVideo() {
+        val p = player ?: return
+        try {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                .build()
+        } catch (e: Exception) {}
     }
 
     private fun openVodMenu() {
