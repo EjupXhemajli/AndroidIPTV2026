@@ -18,8 +18,7 @@ jobs:
           rm -rf _src && mkdir -p _src
           shopt -s nullglob
           cp *.zip _src/ 2>/dev/null || true
-          if [ -z "$(ls -A _src)" ]; then echo "Keine .zip im Repo gefunden!"; exit 1; fi
-          # bis zu 4 Ebenen tief entpacken (falls die ZIP weitere ZIPs enthaelt)
+          if [ -z "$(ls -A _src)" ]; then echo "FEHLER: keine .zip im Repo gefunden!"; exit 1; fi
           for i in 1 2 3 4; do
             any=0
             while IFS= read -r z; do
@@ -30,7 +29,7 @@ jobs:
             [ "$any" = "0" ] && break
           done
           SG="$(find _src -name settings.gradle | head -n1)"
-          if [ -z "$SG" ]; then echo "settings.gradle in der ZIP nicht gefunden!"; find _src | head -50; exit 1; fi
+          if [ -z "$SG" ]; then echo "FEHLER: settings.gradle nicht gefunden"; find _src | head -80; exit 1; fi
           ROOT="$(dirname "$SG")"
           echo "Projektwurzel: $ROOT"
           echo "PROJ_ROOT=$ROOT" >> "$GITHUB_ENV"
@@ -40,22 +39,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - name: Android SDK einrichten
         uses: android-actions/setup-android@v3
 
-      - name: Gradle einrichten
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.7'
+      - name: SDK-Pakete sicherstellen
+        run: yes | sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" >/dev/null || true
 
-      - name: Debug-APK bauen
+      - name: Debug-APK bauen (projekteigener Gradle-Wrapper)
         working-directory: ${{ env.PROJ_ROOT }}
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: |
+          chmod +x gradlew || true
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: APK hochladen
         uses: actions/upload-artifact@v4
         with:
           name: EX-IPTV-APK
-          path: ${{ env.PROJ_ROOT }}/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJ_ROOT }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
