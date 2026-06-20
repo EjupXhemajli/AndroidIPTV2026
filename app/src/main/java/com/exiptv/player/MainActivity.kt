@@ -42,6 +42,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import java.net.HttpURLConnection
@@ -175,19 +177,35 @@ class MainActivity : AppCompatActivity() {
         return false
     }
 
-    private fun targetUrl(): String = if (isTv) baseUrl + "?tv=1" else baseUrl
+    private fun targetUrl(): String =
+        if (isTv) baseUrl + "?tv=1&app=android" else baseUrl + "?app=android"
 
     // ---------------- Nativer Player ----------------
 
     private fun createPlayer(): ExoPlayer {
-        // Großzügige Puffer für stabile Wiedergabe (gegen Ruckler/Aussetzer)
+        // Großzügige Puffer für maximal stabile Wiedergabe (gegen Ruckler/Aussetzer/
+        // Einfrieren). Mehr Vorlauf = mehr Reserve bei Netz-Schwankungen.
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                15_000,   // min gepuffert
-                60_000,   // max gepuffert
-                2_500,    // gepuffert vor Start
-                5_000     // gepuffert nach erneutem Puffern
+                25_000,   // min gepuffert
+                90_000,   // max gepuffert
+                3_000,    // gepuffert vor Start
+                10_000    // gepuffert nach erneutem Puffern (steiferer Wiedereinstieg)
             )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .setTargetBufferBytes(-1)
+            .build()
+
+        // Auflösungs-Grenzen aufheben: die App wählt immer die höchste verfügbare
+        // Videospur und lässt den Hardware-Decoder bis an sein Maximum gehen
+        // (4K/8K, soweit die Box-Hardware es unterstützt) – kein künstliches Limit.
+        val trackSelector = DefaultTrackSelector(this)
+        trackSelector.parameters = trackSelector.buildUponParameters()
+            .setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE)
+            .setMaxVideoBitrate(Int.MAX_VALUE)
+            .setViewportSize(Int.MAX_VALUE, Int.MAX_VALUE, false)
+            .setExceedVideoConstraintsIfNecessary(true)
+            .setExceedRendererCapabilitiesIfNecessary(true)
             .build()
 
         // Decoder-Fallback: hängt der Hardware-Decoder (typisch bei 4K-Sendern auf
@@ -198,6 +216,7 @@ class MainActivity : AppCompatActivity() {
 
         val p = ExoPlayer.Builder(this)
             .setLoadControl(loadControl)
+            .setTrackSelector(trackSelector)
             .setRenderersFactory(renderers)
             .setSeekBackIncrementMs(15_000)
             .setSeekForwardIncrementMs(15_000)
@@ -305,12 +324,21 @@ class MainActivity : AppCompatActivity() {
             .setConnectTimeoutMs(20_000)
             .setReadTimeoutMs(20_000)
             .setAllowCrossProtocolRedirects(true)
+            .setKeepPostFor302Redirects(true)
+        // Bei kurzen Netz-Aussetzern bis zu 8x neu versuchen, statt sofort
+        // abzubrechen – verhindert unnötiges Stocken/Umschalten.
+        val errPolicy = DefaultLoadErrorHandlingPolicy(8)
         val item = MediaItem.fromUri(url)
         val isHls = kind.equals("hls", true) || url.contains(".m3u8", true)
         return if (isHls) {
-            HlsMediaSource.Factory(http).createMediaSource(item)
+            HlsMediaSource.Factory(http)
+                .setAllowChunklessPreparation(true)
+                .setLoadErrorHandlingPolicy(errPolicy)
+                .createMediaSource(item)
         } else {
-            ProgressiveMediaSource.Factory(http).createMediaSource(item)
+            ProgressiveMediaSource.Factory(http)
+                .setLoadErrorHandlingPolicy(errPolicy)
+                .createMediaSource(item)
         }
     }
 
