@@ -1,0 +1,87 @@
+name: APK bauen
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Neueste ZIP wählen und entpacken
+        shell: bash
+        run: |
+          set -e
+          mapfile -t ALLZIPS < <(git ls-files '*.zip')
+          if [ "${#ALLZIPS[@]}" -eq 0 ]; then echo "FEHLER: keine .zip im Repo gefunden!"; exit 1; fi
+          echo "ZIPs im Repo:"; printf '  - %s\n' "${ALLZIPS[@]}"
+          NEWEST="$(git log --name-only --pretty=format: -- '*.zip' | grep -i '\.zip$' | head -n1)"
+          if [ -z "$NEWEST" ] || [ ! -f "$NEWEST" ]; then NEWEST="${ALLZIPS[-1]}"; fi
+          echo "==> Es wird gebaut aus: $NEWEST"
+          if [ "${#ALLZIPS[@]}" -gt 1 ]; then
+            echo "HINWEIS: Mehrere ZIPs im Repo - gebaut wird die neueste. Bitte alte ZIPs loeschen."
+          fi
+          rm -rf _src && mkdir -p _src
+          cp "$NEWEST" _src/
+          for i in 1 2 3 4; do
+            any=0
+            while IFS= read -r z; do
+              unzip -q -o "$z" -d "$(dirname "$z")" && rm -f "$z"; any=1
+            done < <(find _src -name '*.zip')
+            [ "$any" = "0" ] && break
+          done
+          SG="$(find _src -name settings.gradle | head -n1)"
+          if [ -z "$SG" ]; then echo "FEHLER: settings.gradle nicht gefunden"; find _src | head -80; exit 1; fi
+          ROOT="$(dirname "$SG")"
+          SO="$(find "$ROOT" -path '*arm64-v8a/libexiptvserver.so' | head -n1)"
+          UI="$(strings "$SO" 2>/dev/null | grep -oE '1\.10\.[0-9]+' | sort -V | tail -n1)"
+          [ -z "$UI" ] && UI="$(grep -m1 'versionName' "$ROOT/app/build.gradle" | sed -E 's/.*versionName[^\"]*\"([^\"]+)\".*/\1/')"
+          echo "PROJ_ROOT=$ROOT" >> "$GITHUB_ENV"
+          echo "UI_VER=$UI" >> "$GITHUB_ENV"
+          {
+            echo "## EX-IPTV Build"
+            echo ""
+            echo "* Version (Anzeige unten links): **v$UI**"
+            echo "* Gebaut aus ZIP: \`$NEWEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Java 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Android SDK einrichten
+        uses: android-actions/setup-android@v3
+
+      - name: SDK-Pakete sicherstellen
+        run: yes | sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" >/dev/null || true
+
+      - name: Debug-APK bauen
+        working-directory: ${{ env.PROJ_ROOT }}
+        run: |
+          chmod +x gradlew || true
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: APK umbenennen (Version im Dateinamen)
+        shell: bash
+        run: |
+          APK="$(find "${{ env.PROJ_ROOT }}/app/build/outputs/apk/debug" -name '*.apk' | head -n1)"
+          if [ -z "$APK" ]; then echo "FEHLER: keine APK gebaut"; exit 1; fi
+          OUT="EX-IPTV-v${{ env.UI_VER }}.apk"
+          cp "$APK" "$OUT"
+          echo "OUT_APK=$OUT" >> "$GITHUB_ENV"
+          echo "Fertige APK: $OUT"
+
+      - name: APK hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: EX-IPTV-v${{ env.UI_VER }}
+          path: ${{ env.OUT_APK }}
+          if-no-files-found: error
