@@ -25,3 +25,11 @@ Skill: code-audit. Nur Kotlin editierbar (Go-Server liegt als .so vor).
 - [H] buildSource: DefaultHttpDataSource -> media3 OkHttpDataSource(streamHttpClient);
   Timeouts 13s/20s im Client, Redirects via OkHttp-Standard.
 - [DEP] media3-datasource-okhttp:1.4.1, okhttp:4.12.0, okhttp-dnsoverhttps:4.12.0.
+
+## 0.4.32 (Handy-Layout aktiviert: UI aus App-Assets)
+- [ROOT-CAUSE] Repo-Basis 0.4.28 -> .so-UI 1.10.33 OHNE Handy-Layout (das kam erst in 1.10.34/0.4.29,
+  nie ins Repo hochgeladen). Deshalb volle Seitenleiste auf dem Telefon.
+- [FIX] WebViewClient.shouldInterceptRequest: index.html/app.js/style.css/tvnav.js kommen jetzt aus
+  app/src/main/assets/web/ (gerettete 1.10.34-Quelle inkl. @media max-width:600px). Fallback: Server.
+- [+] Versionsanzeige unten links jetzt "v<server>-a1" -> eindeutige Kontrolle, dass die Asset-UI aktiv ist.
+- Konsequenz: Oberfläche ist wieder voll wartbar ohne Go-Quellcode (Assets statt .so).

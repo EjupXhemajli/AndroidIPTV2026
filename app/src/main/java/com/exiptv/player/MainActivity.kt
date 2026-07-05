@@ -145,6 +145,30 @@ class MainActivity : AppCompatActivity() {
         web.webChromeClient = WebChromeClient()
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): android.webkit.WebResourceResponse? {
+                // Oberflächen-Dateien aus den App-Assets liefern (Stand 1.10.34,
+                // inkl. Handy-Layout). Grund: Der Go-Server liegt nur kompiliert
+                // vor (UI 1.10.33) – so bleibt die Oberfläche trotzdem wartbar.
+                // API-/Stream-/Bild-Routen laufen unverändert über den Server;
+                // bei jedem Fehler fällt die Ladung auf den Server zurück (null).
+                val u = request?.url ?: return null
+                if (u.host != "127.0.0.1") return null
+                val name = when (u.path) {
+                    "/", "/index.html" -> "index.html"
+                    "/app.js" -> "app.js"
+                    "/style.css" -> "style.css"
+                    "/tvnav.js" -> "tvnav.js"
+                    else -> return null
+                }
+                return try {
+                    val mime = when {
+                        name.endsWith(".css") -> "text/css"
+                        name.endsWith(".js") -> "application/javascript"
+                        else -> "text/html"
+                    }
+                    android.webkit.WebResourceResponse(mime, "utf-8", assets.open("web/$name"))
+                } catch (e: Exception) { null }
+            }
             override fun onReceivedError(
                 view: WebView?, request: WebResourceRequest?, error: WebResourceError?
             ) {

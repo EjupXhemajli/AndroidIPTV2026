@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>EX-IPTV</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png">
+<link rel="stylesheet" href="/style.css?v=1105">
+</head>
+<body>
+
+<!-- Schärfe-Filter für die Bildverbesserung -->
+<svg width="0" height="0" style="position:absolute">
+  <filter id="fx-sharp-lo"><feConvolveMatrix order="3" preserveAlpha="true"
+    kernelMatrix="0 -0.25 0 -0.25 2 -0.25 0 -0.25 0"/></filter>
+  <filter id="fx-sharp-hi"><feConvolveMatrix order="3" preserveAlpha="true"
+    kernelMatrix="0 -0.55 0 -0.55 3.2 -0.55 0 -0.55 0"/></filter>
+</svg>
+
+<!-- Wiederverwendbares Logo-Emblem -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="exg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/><stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="exg2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#22D3EE"/><stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <g id="ex-emblem">
+      <circle cx="60" cy="60" r="56" fill="#0D1117"/>
+      <circle cx="60" cy="60" r="52" fill="none" stroke="url(#exg)" stroke-width="7.5"/>
+      <circle cx="60" cy="60" r="41" fill="none" stroke="url(#exg2)" stroke-width="1.6" opacity=".45"/>
+      <path d="M50 38 L86 60 L50 82 Z" fill="#fff"/>
+      <circle cx="60" cy="8" r="3.4" fill="#fff"/>
+    </g>
+  </defs>
+</svg>
+
+<!-- ======================= Splash ======================= -->
+<div id="splash">
+  <div class="splash-stage">
+    <div class="emblem-spin">
+      <svg viewBox="0 0 120 120" class="emblem xl"><use href="#ex-emblem"/></svg>
+    </div>
+    <svg class="orbit" viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="92" fill="none" stroke="url(#exg)" stroke-width="2"
+        stroke-dasharray="10 26" stroke-linecap="round" opacity=".7"/>
+    </svg>
+  </div>
+  <div class="brand-xl">EX-IPTV</div>
+  <div class="splash-sub">Dein Fernsehen. Eine App.</div>
+  <div class="splash-bar"><div class="splash-bar-fill"></div></div>
+  <div id="splash-status">Wird gestartet …</div>
+  <button id="splash-sound" class="ghost-btn hidden">▶&nbsp; Mit Sound starten</button>
+</div>
+
+<!-- ======================= App ======================= -->
+<div id="app" class="hidden">
+
+  <aside id="rail">
+    <div class="rail-brand" data-nav="home">
+      <img src="/assets/logo-exiptv.png?v=1" alt="EX-IPTV" class="brand-logo-img">
+    </div>
+    <nav>
+      <button class="rail-btn r-home" data-nav="home"><span class=" rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span><span>Start</span></button>
+      <button class="rail-btn r-search" data-nav="search"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><span>Suche</span></button>
+      <button class="rail-btn r-tv" data-nav="tv"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m7 7 5-4 5 4"/></svg></span><span>Live-TV</span></button>
+      <button class="rail-btn r-guide" data-nav="guide"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v5M3 14h11"/></svg></span><span>TV-Guide</span></button>
+      <button class="rail-btn r-movies" data-nav="movies"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M17 8h4M3 16h4M17 16h4"/></svg></span><span>Filme</span></button>
+      <button class="rail-btn r-series" data-nav="series"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="m7 7 3-4M17 7l-3-4"/></svg></span><span>Serien</span></button>
+      <button class="rail-btn r-continue" data-nav="continue"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M21 3v5h-5"/></svg></span><span>Weiter schauen</span></button>
+      <button class="rail-btn r-favs" data-nav="favs"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8 6.8 19l1-5.8L3.6 9.1l5.8-.8z"/></svg></span><span>Favoriten</span></button>
+      <button class="rail-btn r-recs" data-nav="recs"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/></svg></span><span>Aufnahmen</span></button>
+    </nav>
+    <div class="rail-bottom">
+      <button class="rail-btn r-settings" data-nav="settings"><span class="rico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span>Einstellungen</span></button>
+      <div class="rail-version" id="rail-version"></div>
+    </div>
+  </aside>
+
+  <main id="content">
+
+    <!-- Start -->
+    <section id="view-home" class="view">
+      <div class="ambient a1"></div>
+      <div class="ambient a2"></div>
+      <div class="hero">
+        <div class="hero-top">
+          <div>
+            <div id="home-greet" class="hero-greet"></div>
+            <div id="home-clock" class="hero-clock"></div>
+          </div>
+        </div>
+        <p class="hero-sub">Live-TV, Filme und Serien – stabil, scharf und ohne Umwege.</p>
+        <div class="bigclock" id="home-bigclock">
+          <div class="bc-greet" id="bc-greet"></div>
+          <div class="bc-time"><span id="bc-hh">00</span><span class="bc-sep">:</span><span id="bc-mm">00</span></div>
+          <div class="bc-date" id="bc-date"></div>
+        </div>
+        <div class="hero-tiles" id="home-tiles"></div>
+        <div class="home-cities hidden" id="home-cities"></div>
+      </div>
+      <div id="home-continue" class="home-row hidden">
+        <h2>Weiterschauen</h2>
+        <div id="home-continue-card"></div>
+      </div>
+    </section>
+
+    <!-- Live-TV -->
+    <section id="view-tv" class="view hidden">
+      <div class="tv-layout">
+        <div class="col groups-col">
+          <div class="col-head">Gruppen</div>
+          <div id="tv-groups" class="list"></div>
+        </div>
+        <div class="col channels-col">
+          <div class="col-head"><span id="tv-group-title">Kanäle</span><span id="tv-count" class="badge"></span></div>
+          <div id="tv-channels" class="list"></div>
+        </div>
+        <div class="col info-col">
+          <div id="tv-info" class="info-card empty">Wähle links eine Gruppe und einen Kanal.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TV-Guide -->
+    <section id="view-guide" class="view hidden">
+      <div class="guide-toolbar">
+        <select id="guide-group"></select>
+        <input id="guide-search" type="text" placeholder="Sendung suchen … (z. B. Tagesschau)" style="min-width:240px">
+        <div class="spacer"></div>
+        <button id="guide-prev" class="ghost-btn">‹ Früher</button>
+        <button id="guide-now" class="ghost-btn">Jetzt</button>
+        <button id="guide-next" class="ghost-btn">Später ›</button>
+      </div>
+      <div id="guide-results" class="hidden" style="padding:0 18px 10px;max-height:40vh;overflow:auto"></div>
+      <div id="guide-wrap">
+        <div id="guide-times"></div>
+        <div id="guide-rows"></div>
+        <div id="guide-nowline"></div>
+      </div>
+    </section>
+
+    <!-- Filme -->
+    <section id="view-movies" class="view hidden">
+      <div class="vod-layout">
+        <div class="col groups-col">
+          <div class="col-head">Kategorien</div>
+          <div id="movies-groups" class="list"></div>
+        </div>
+        <div class="vod-grid-wrap">
+          <div class="col-head"><span id="movies-title">Filme</span><span id="movies-count" class="badge"></span><input id="movies-search" class="grid-search" type="text" placeholder="Filme durchsuchen …"><select id="movies-sort" class="grid-sort" title="Sortierung"><option value="standard">Sortieren …</option><option value="name">Name (A–Z)</option><option value="jahr">Jahr (neu zuerst)</option><option value="datum">Zuletzt hinzugefügt</option><option value="bewertung">Bewertung (hoch zuerst)</option><option value="genre">Genre (A–Z)</option></select></div>
+          <div id="movies-grid" class="poster-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Serien -->
+    <section id="view-series" class="view hidden">
+      <div class="vod-layout">
+        <div class="col groups-col">
+          <div class="col-head">Kategorien</div>
+          <div id="series-groups" class="list"></div>
+        </div>
+        <div class="vod-grid-wrap">
+          <div class="col-head"><span id="series-title">Serien</span><span id="series-count" class="badge"></span><input id="series-search" class="grid-search" type="text" placeholder="Serien durchsuchen …"><select id="series-sort" class="grid-sort" title="Sortierung"><option value="standard">Sortieren …</option><option value="name">Name (A–Z)</option><option value="jahr">Jahr (neu zuerst)</option><option value="datum">Zuletzt hinzugefügt</option><option value="bewertung">Bewertung (hoch zuerst)</option><option value="genre">Genre (A–Z)</option></select></div>
+          <div id="series-grid" class="poster-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Weiter schauen -->
+    <section id="view-continue" class="view hidden">
+      <div class="col-head pad">Weiter schauen <span id="continue-count" class="badge"></span><button class="ghost-btn" id="continue-clear" style="margin-left:auto">🗑 Alle entfernen</button></div>
+      <div id="continue-grid" class="poster-grid pad"></div>
+    </section>
+
+    <!-- Favoriten -->
+    <section id="view-favs" class="view hidden">
+      <div class="col-head pad">Favoriten <span id="favs-count" class="badge"></span></div>
+      <div id="favs-list" class="list pad"></div>
+    </section>
+
+    <!-- Aufnahmen -->
+    <section id="view-recs" class="view hidden">
+      <div class="col-head pad">Aufnahmen <span class="muted" id="recs-dir"></span></div>
+      <div id="recs-list" class="list pad"></div>
+    </section>
+
+    <!-- Suche -->
+    <section id="view-search" class="view hidden">
+      <div class="search-box">
+        <input id="search-input" type="text" placeholder="Sender, Filme oder Serien suchen …" autocomplete="off">
+      </div>
+      <div id="search-results" class="pad"></div>
+    </section>
+
+    <!-- Einstellungen -->
+    <section id="view-settings" class="view hidden">
+      <div class="settings-wrap">
+        <h2>Playlists</h2>
+        <div id="settings-playlists"></div>
+        <div class="col-head" style="margin-top:22px">Sicherheit</div>
+        <div class="setting-row">
+          <label>PIN-Schutz für Gruppen</label>
+          <span id="pin-state" class="muted" style="margin-right:10px">–</span>
+          <button id="btn-pin-set" class="ghost-btn">PIN festlegen</button>
+          <button id="btn-pin-lock" class="ghost-btn hidden">Jetzt sperren</button>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin:-4px 0 14px">Gesperrte Gruppen wählst du in der Gruppenverwaltung der Playlist (🔒). Inhalte erscheinen erst nach PIN-Eingabe, Freischaltung gilt 30 Minuten.</p>
+        <button id="btn-add-playlist" class="primary-btn">＋ Playlist hinzufügen</button>
+
+        <h2>Wiedergabe</h2>
+        <div class="setting-row">
+          <label>Puffer-Modus</label>
+          <select id="set-buffermode">
+            <option value="schnell">Schnell – flotter Senderwechsel</option>
+            <option value="ausgewogen">Ausgewogen (empfohlen)</option>
+            <option value="stabil">Stabil – maximaler Puffer gegen Ruckler</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Feinpuffer</label>
+          <input id="set-buffer" type="range" min="1" max="10" step="1">
+          <span id="set-buffer-val" class="badge"></span>
+        </div>
+        <div class="setting-row">
+          <label>Ton-Versatz (Ton später)</label>
+          <input id="set-audiodelay" type="range" min="0" max="750" step="25" style="width:160px">
+          <span id="set-audiodelay-val" class="muted">0 ms</span>
+        </div>
+        <div class="setting-row">
+          <label>Nächste Folge automatisch starten</label>
+          <input id="set-autoplay" type="checkbox">
+        </div>
+        <div class="setting-row">
+          <label>Puffer automatisch anpassen</label>
+          <input id="set-buffertune" type="checkbox">
+        </div>
+        <div class="setting-row">
+          <label>Wiedergabeweg</label>
+          <select id="set-playbackpref">
+            <option value="auto">Automatisch (empfohlen)</option>
+            <option value="ffmpeg">Immer umwandeln (ffmpeg) – maximale Kompatibilität</option>
+            <option value="direkt">Nie umwandeln – nur Direktwiedergabe</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Bildverbesserung (Standard)</label>
+          <select id="set-enhance">
+            <option value="aus">Aus</option>
+            <option value="klar">Klar (empfohlen)</option>
+            <option value="kino">Kino</option>
+            <option value="brillant">Brillant</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Bildqualität</label>
+          <select id="set-quality">
+            <option value="hoch">Immer höchste (Standard)</option>
+            <option value="auto">Automatisch (Datensparen)</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Inhalte direkt im Vollbild öffnen</label>
+          <input id="set-autofull" type="checkbox">
+        </div>
+        <div class="setting-row">
+          <label>Bildrate</label>
+          <select id="set-fps">
+            <option value="max">Höchste verfügbare (flüssig)</option>
+            <option value="quelle">Standard (wie Quelle)</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Lautstärke-Normalisierung</label>
+          <input id="set-audioboost" type="checkbox">
+        </div>
+
+        <h2>Programm-Guide</h2>
+        <div class="setting-row">
+          <label>EPG-Zeitversatz</label>
+          <select id="set-epgoffset">
+            <option value="-3">−3 Std.</option><option value="-2">−2 Std.</option><option value="-1">−1 Std.</option>
+            <option value="0">Keiner</option>
+            <option value="1">+1 Std.</option><option value="2">+2 Std.</option><option value="3">+3 Std.</option>
+          </select>
+          <button id="btn-epg-refresh" class="ghost-btn">EPG jetzt aktualisieren</button>
+        </div>
+
+        <h2>Start</h2>
+        <div class="setting-row">
+          <label>Startsound abspielen</label>
+          <input id="set-sound" type="checkbox">
+        </div>
+        <div class="setting-row">
+          <label>Startansicht</label>
+          <select id="set-startview">
+            <option value="home">Startseite</option>
+            <option value="tv">Live-TV</option>
+            <option value="resume">Letzten Sender sofort abspielen</option>
+          </select>
+        </div>
+
+        <h2>Oberfläche</h2>
+        <div class="setting-row">
+          <label>Akzentfarbe</label>
+          <select id="set-accent">
+            <option value="violett">Violett &amp; Cyan (Standard)</option>
+            <option value="cyan">Eisblau</option>
+            <option value="smaragd">Smaragd</option>
+            <option value="amber">Bernstein</option>
+            <option value="magenta">Magenta</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Startseiten-Hintergrund</label>
+          <select id="set-homebg">
+            <option value="1">Aurora (Standard)</option>
+            <option value="2">Ozean</option>
+            <option value="3">Sonnenuntergang</option>
+            <option value="4">Wald</option>
+            <option value="5">Galaxie</option>
+            <option value="6">Rosé</option>
+            <option value="7">Schiefer</option>
+            <option value="8">Feuer</option>
+            <option value="9">Minze</option>
+            <option value="10">Royal</option>
+            <option value="11">Koralle</option>
+            <option value="12">Türkis-Nacht</option>
+            <option value="13">Bernstein-Glut</option>
+            <option value="14">Pflaume</option>
+            <option value="15">Polarlicht</option>
+            <option value="16">Smaragd-Tiefe</option>
+            <option value="17">Magenta-Traum</option>
+            <option value="18">Stahlblau</option>
+            <option value="19">Kupfer</option>
+            <option value="20">Indigo</option>
+            <option value="21">Mango-Sonne</option>
+            <option value="22">Rosé-Gold</option>
+            <option value="23">Petrol</option>
+            <option value="24">Veilchen</option>
+            <option value="25">Limette</option>
+            <option value="26">Kobalt</option>
+            <option value="27">Beere</option>
+            <option value="28">Mitternacht</option>
+            <option value="29">Flieder</option>
+            <option value="30">Aqua-Glühen</option>
+            <optgroup label="Motive (4K-scharf, Vektor)">
+            <option value="31">Sonnenuntergang am Meer</option>
+            <option value="32">Bergkette</option>
+            <option value="33">Skyline bei Nacht</option>
+            <option value="34">Nebel-Hügel</option>
+            <option value="35">Galaxie & Nebel</option>
+            <option value="36">Kirschblüte</option>
+            <option value="37">Wüstendüne</option>
+            <option value="38">Polarnacht</option>
+            <option value="39">Wald-Morgen</option>
+            <option value="40">Ozean-Welle</option>
+            </optgroup>
+            <optgroup label="Muster">
+            <option value="41">Linien</option>
+            <option value="42">Karo</option>
+            <option value="43">Wellen-Muster</option>
+            <option value="44">Blätter (Natur)</option>
+            <option value="45">Tropfen</option>
+            </optgroup>
+            <optgroup label="Muster (Linien &amp; Natur)">
+            <option value="41">Diagonale Linien</option>
+            <option value="42">Feines Gitter</option>
+            <option value="43">Punkteraster</option>
+            <option value="44">Wellenlinien</option>
+            <option value="45">Blätterwald (Natur)</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>Sendernummern anzeigen</label>
+          <input id="set-shownums" type="checkbox">
+        </div>
+
+        <h2>Wartung</h2>
+        <div class="setting-row">
+          <label>Listen-Cache</label>
+          <button id="btn-cache-clear" class="ghost-btn">Cache leeren &amp; neu laden</button>
+        </div>
+        <div class="setting-row">
+          <label>Diagnose</label>
+          <button id="btn-show-log" class="ghost-btn">Server-Log anzeigen</button>
+        </div>
+
+        <h2>Info</h2>
+        <p class="muted" id="about-line"></p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ======================= Setup-Assistent ======================= -->
+<div id="setup" class="modal-bg hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <svg viewBox="0 0 120 120" class="emblem sm"><use href="#ex-emblem"/></svg>
+      <div><h2 id="setup-title">Willkommen bei EX-IPTV</h2>
+      <p class="muted">Füge eine Playlist hinzu, um loszulegen.</p></div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="xtream">Xtream Codes</button>
+      <button class="tab" data-tab="m3u">M3U-Link</button>
+      <button class="tab" data-tab="file">M3U-Datei</button>
+      <button class="tab" data-tab="demo">Demo</button>
+    </div>
+    <div class="tab-pane" id="pane-xtream">
+      <input id="xt-name" placeholder="Name (z. B. Mein Anbieter)">
+      <input id="xt-server" placeholder="Server-URL (http://server:port)">
+      <input id="xt-user" placeholder="Benutzername">
+      <input id="xt-pass" placeholder="Passwort" type="password">
+    </div>
+    <div class="tab-pane hidden" id="pane-m3u">
+      <input id="m3u-name" placeholder="Name der Playlist">
+      <input id="m3u-url" placeholder="M3U-/M3U8-Link (http://…)">
+      <input id="m3u-epg" placeholder="EPG-Link (XMLTV, optional)">
+    </div>
+    <div class="tab-pane hidden" id="pane-file">
+      <input id="file-name" placeholder="Name der Playlist">
+      <label class="file-drop">M3U-Datei auswählen<input id="file-input" type="file" accept=".m3u,.m3u8,.txt" hidden></label>
+      <div id="file-chosen" class="muted"></div>
+    </div>
+    <div class="tab-pane hidden" id="pane-demo">
+      <p>Lädt eine frei verfügbare Demo-Playlist mit deutschen Free-TV-Sendern (iptv-org), damit du EX-IPTV sofort testen kannst.</p>
+    </div>
+    <div id="setup-error" class="error hidden"></div>
+    <div class="modal-foot">
+      <button id="setup-cancel" class="ghost-btn hidden">Abbrechen</button>
+      <button id="setup-save" class="primary-btn">Playlist hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= Gruppen verwalten ======================= -->
+<div id="cw-action" class="modal-bg hidden">
+  <div class="modal">
+    <div class="modal-head"><h2 id="cw-action-title">Weiter schauen</h2></div>
+    <div style="padding:6px 4px 2px">
+      <button class="primary-btn" id="cw-resume" style="width:100%;margin-bottom:10px">▶ Fortsetzen</button>
+      <button class="danger-btn" id="cw-delete" style="width:100%">✕ Aus der Liste entfernen</button>
+    </div>
+    <div class="modal-foot"><button class="ghost-btn" id="cw-cancel" data-close>Abbrechen</button></div>
+  </div>
+</div>
+
+<div id="groups-modal" class="modal-bg hidden">
+  <div class="modal">
+    <div class="modal-head"><h2>Gruppen verwalten</h2></div>
+    <p class="muted">Ausgeblendete Gruppen erscheinen nicht in der Senderliste.</p>
+    <div id="groups-modal-list" class="list tall"></div>
+    <div class="modal-foot"><button class="primary-btn" id="groups-modal-close">Fertig</button></div>
+  </div>
+</div>
+
+<!-- ======================= Programm-Details ======================= -->
+<div id="prog-modal" class="modal-bg hidden">
+  <div class="modal">
+    <div class="modal-head"><h2 id="prog-title"></h2></div>
+    <p class="muted" id="prog-time"></p>
+    <p id="prog-desc"></p>
+    <div class="modal-foot">
+      <button class="ghost-btn" id="prog-close">Schließen</button>
+      <button class="primary-btn hidden" id="prog-watch">▶ Jetzt ansehen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= Serien-Details ======================= -->
+<div id="series-modal" class="modal-bg hidden">
+  <div class="modal wide">
+    <div class="modal-head">
+      <img id="series-cover" class="series-cover" alt="">
+      <div><h2 id="series-name"></h2><p class="muted" id="series-meta"></p></div>
+    </div>
+    <div id="series-seasons" class="list tall"></div>
+    <div class="modal-foot"><button class="ghost-btn" id="series-close">Schließen</button></div>
+  </div>
+</div>
+
+<!-- ======================= Player ======================= -->
+<div id="player" class="hidden">
+  <video id="video" playsinline></video>
+  <div id="player-spinner" class="hidden"><div class="ring"></div><span id="player-spinner-text">Verbinde …</span></div>
+  <div id="player-error" class="hidden"></div>
+
+  <div id="osd">
+    <div class="osd-top">
+      <button id="pl-back" class="osd-btn" title="Zurück">‹</button>
+      <img id="pl-logo" class="pl-logo" alt="">
+      <div class="pl-meta">
+        <div id="pl-name">–</div>
+        <div id="pl-now" class="muted"></div>
+        <div class="pl-prog"><div id="pl-prog-fill"></div></div>
+        <div id="pl-next" class="muted small"></div>
+      </div>
+      <div class="spacer"></div>
+      <div id="pl-clock"></div>
+    </div>
+    <div class="osd-bottom">
+        <div id="seek-row">
+          <span class="sk-time" id="sk-cur">0:00</span>
+          <input id="seek-bar" type="range" min="0" max="1000" value="0" step="1">
+          <span class="sk-time right" id="sk-dur">0:00</span>
+        </div>
+      <button class="osd-btn pl-skip" id="pl-rew" title="15 Sekunden zurück">⟲15</button><button class="osd-btn" id="pl-prev" title="Vorheriger Kanal">⏮</button>
+      <button class="osd-btn" id="pl-pause" title="Pause/Weiter">⏸</button>
+      <button class="osd-btn" id="pl-next-ch" title="Nächster Kanal">⏭</button><button class="osd-btn pl-skip" id="pl-fwd" title="15 Sekunden vor">15⟳</button>
+      <div class="osd-sep"></div>
+      <button class="osd-btn" id="pl-list" title="Kanalliste">☰</button>
+      <button class="osd-btn" id="pl-fav" title="Favorit">★</button>
+      <button class="osd-btn" id="pl-rec" title="Aufnahme">●</button>
+      <div class="osd-sep"></div>
+      <button class="osd-btn" id="pl-tracks" title="Ton &amp; Untertitel" style="display:none">🗣</button><button class="osd-btn" id="pl-enhance" title="Bildverbesserung">✦</button>
+      <button class="osd-btn" id="pl-audio" title="Lautstärke-Normalisierung">♬</button>
+      <button class="osd-btn" id="pl-aspect" title="Bildformat">⤢</button>
+      <button class="osd-btn" id="pl-pip" title="Bild-in-Bild">⧉</button>
+      <div class="spacer"></div>
+      <input id="pl-volume" type="range" min="0" max="100" value="100" title="Lautstärke">
+      <button class="osd-btn" id="pl-full" title="Vollbild">⛶</button>
+    </div>
+  </div>
+
+  <div id="zap-list" class="hidden">
+    <div class="col-head">Kanäle <span id="zap-group" class="muted"></span></div>
+    <div id="zap-items" class="list"></div>
+  </div>
+  <div id="zap-num" class="hidden"></div>
+  <div id="enhance-menu" class="hidden">
+    <div class="menu-title">Bildverbesserung</div>
+    <button data-fx="aus">Aus</button>
+    <button data-fx="klar">Klar</button>
+    <button data-fx="kino">Kino</button>
+    <button data-fx="brillant">Brillant</button>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<audio id="intro-audio" src="/assets/intro.mp3" preload="auto"></audio>
+
+<script src="/vendor/hls.min.js?v=1105"></script>
+<script src="/vendor/mpegts.min.js?v=1105"></script>
+<script src="/app.js?v=1105"></script>
+<script src="/tvnav.js?v=1105"></script>
+</body>
+</html>
