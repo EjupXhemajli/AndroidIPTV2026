@@ -74,7 +74,7 @@ jobs:
         run: |
           APK="$(find "${{ env.PROJ_ROOT }}/app/build/outputs/apk/debug" -name '*.apk' | head -n1)"
           if [ -z "$APK" ]; then echo "FEHLER: keine APK gebaut"; exit 1; fi
-          OUT="EX-IPTV-v${{ env.UI_VER }}.apk"
+          OUT="EX-IPTV-v${{ env.UI_VER }}-net3.apk"
           cp "$APK" "$OUT"
           echo "OUT_APK=$OUT" >> "$GITHUB_ENV"
           echo "Fertige APK: $OUT"
@@ -82,6 +82,6 @@ jobs:
       - name: APK hochladen
         uses: actions/upload-artifact@v4
         with:
-          name: EX-IPTV-v${{ env.UI_VER }}
+          name: EX-IPTV-v${{ env.UI_VER }}-net3
           path: ${{ env.OUT_APK }}
           if-no-files-found: error

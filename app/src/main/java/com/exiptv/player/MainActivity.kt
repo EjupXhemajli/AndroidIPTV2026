@@ -66,7 +66,8 @@ class MainActivity : AppCompatActivity() {
     private var isVod = false                // Film/Serie statt Live
     private var vodTicker: Runnable? = null   // meldet VOD-Position an die Oberflaeche
     private var resumeMs = 0L                 // Fortsetz-Punkt fuer VOD
-    private var aspectMode = 0                 // 0=Anpassen 1=Zoom/Vollbild 2=Strecken
+    private val prefs by lazy { getSharedPreferences("exiptv", Context.MODE_PRIVATE) }
+    private var aspectMode = 0                 // 0=Anpassen 1=Vollbild/Zoom 2=Strecken 3=Breite 4=Höhe
 
     // Natives Einstellungsmenü im Player (OK-Taste)
     private var menuScrim: FrameLayout? = null
@@ -318,16 +319,65 @@ class MainActivity : AppCompatActivity() {
         handler.postDelayed(r, 3500)
     }
 
+    /** DNS mit Länder-Schutz: Erst DNS-über-HTTPS (Cloudflare, verschlüsselt,
+     *  umgeht nationale DNS-Sperren für IPTV-Domains), bei Fehlern automatisch
+     *  zurück aufs System-DNS. Für den Nutzer unsichtbar und ohne Nachteil. */
+    private class SafeDns(private val primary: okhttp3.Dns) : okhttp3.Dns {
+        override fun lookup(hostname: String): List<java.net.InetAddress> =
+            try { primary.lookup(hostname) }
+            catch (e: Exception) { okhttp3.Dns.SYSTEM.lookup(hostname) }
+    }
+
+    private val streamHttpClient: okhttp3.OkHttpClient by lazy {
+        val boot = okhttp3.OkHttpClient.Builder()
+            .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        val dohUrl = okhttp3.HttpUrl.Builder()
+            .scheme("https").host("cloudflare-dns.com").addPathSegment("dns-query").build()
+        val doh = okhttp3.dnsoverhttps.DnsOverHttps.Builder()
+            .client(boot)
+            .url(dohUrl)
+            .bootstrapDnsHosts(
+                java.net.InetAddress.getByName("1.1.1.1"),
+                java.net.InetAddress.getByName("1.0.0.1")
+            )
+            .build()
+        okhttp3.OkHttpClient.Builder()
+            .dns(SafeDns(doh))
+            .connectTimeout(13, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
+    /** Welt-Netz-Policy: Bei Drosselung (429) oder Überlast (503) gilt der
+     *  Fehler NICHT als endgültig – stattdessen mit wachsender Wartezeit
+     *  erneut versuchen (4s, 8s, … max 20s). Standardverhalten würde 429
+     *  als fatal behandeln und den Stream sofort aufgeben. */
+    private class WorldErrorPolicy : DefaultLoadErrorHandlingPolicy(12) {
+        override fun getRetryDelayMsFor(
+            info: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo
+        ): Long {
+            val code = (info.exception as? androidx.media3.datasource.HttpDataSource
+                .InvalidResponseCodeException)?.responseCode ?: 0
+            if (code == 429 || code == 503) {
+                return (4_000L * info.errorCount).coerceAtMost(20_000L)
+            }
+            return super.getRetryDelayMsFor(info)
+        }
+    }
+
     private fun buildSource(url: String, kind: String): MediaSource {
-        val http = DefaultHttpDataSource.Factory()
-            .setUserAgent("EX-IPTV/1.0")
-            .setConnectTimeoutMs(20_000)
-            .setReadTimeoutMs(20_000)
-            .setAllowCrossProtocolRedirects(true)
-            .setKeepPostFor302Redirects(true)
-        // Bei kurzen Netz-Aussetzern bis zu 8x neu versuchen, statt sofort
-        // abzubrechen – verhindert unnötiges Stocken/Umschalten.
-        val errPolicy = DefaultLoadErrorHandlingPolicy(8)
+        // OkHttp-Quelle mit Länder-DNS-Schutz (SafeDns/DoH) statt Standard-HTTP.
+        // Timeouts (13s/20s) und Weiterleitungen übernimmt der Client.
+        val http = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(streamHttpClient)
+            // Weltweit-Kompatibilität: Viele Panels erlauben nur bekannte
+            // Player-Kennungen; unbekannte werden von restriktiven Anbietern
+            // geblockt/gedrosselt. VLC ist die am breitesten akzeptierte.
+            .setUserAgent("VLC/3.0.20 LibVLC/3.0.20")
+        // Weltweit robust: bis zu 12 Neuversuche, bei 429/503 mit Wartezeit
+        // statt Sofort-Abbruch (siehe WorldErrorPolicy).
+        val errPolicy = WorldErrorPolicy()
         val item = MediaItem.fromUri(url)
         val isHls = kind.equals("hls", true) || url.contains(".m3u8", true)
         return if (isHls) {
@@ -347,6 +397,8 @@ class MainActivity : AppCompatActivity() {
         isVod = false
         stopVodTicker()
         playerView?.useController = false
+        aspectMode = prefs.getInt("aspectMode", 0)
+        applyAspect()
         if (key != currentKey) {
             currentKey = key
             attempts = 0
@@ -384,8 +436,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
         playerView?.useController = true
-        playerView?.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-        aspectMode = 0
+        aspectMode = prefs.getInt("aspectMode", 0)
+        applyAspect()
         playerView?.setShowFastForwardButton(true)
         playerView?.setShowRewindButton(true)
         playerView?.controllerShowTimeoutMs = 3500
@@ -420,17 +472,24 @@ class MainActivity : AppCompatActivity() {
         vodTicker = null
     }
 
-    /** Bildformat umschalten: Anpassen -> Zoom (Vollbild) -> Strecken. */
-    private fun cycleAspect() {
+    /** Bildmodus anwenden (aus aspectMode). */
+    private fun applyAspect() {
         val pv = playerView ?: return
-        aspectMode = (aspectMode + 1) % 3
-        val label: String
         pv.resizeMode = when (aspectMode) {
-            1 -> { label = "Zoom (Vollbild)"; AspectRatioFrameLayout.RESIZE_MODE_ZOOM }
-            2 -> { label = "Strecken"; AspectRatioFrameLayout.RESIZE_MODE_FILL }
-            else -> { label = "Anpassen"; AspectRatioFrameLayout.RESIZE_MODE_FIT }
+            1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM          // Vollbild/Zoom (Center Crop)
+            2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL          // Strecken
+            3 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH   // Breite füllen
+            4 -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT  // Höhe füllen
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT        // Anpassen (Original)
         }
-        flashTitle("Bildformat: $label")
+    }
+
+    /** Bildmodus umschalten und merken (global). */
+    private fun cycleAspect() {
+        aspectMode = (aspectMode + 1) % 5
+        prefs.edit().putInt("aspectMode", aspectMode).apply()
+        applyAspect()
+        flashTitle("Bildformat: " + aspectLabel())
     }
 
     /** Nächste Tonspur wählen (mehrsprachige Filme). */
@@ -490,7 +549,7 @@ class MainActivity : AppCompatActivity() {
                 .setTrackTypeDisabled(t.type, false)
                 .setOverrideForType(TrackSelectionOverride(t.group.mediaTrackGroup, t.index))
                 .build()
-        } catch (e: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("EXIPTV","Untertitel-Auswahl fehlgeschlagen",e) }
     }
 
     private fun disableSubtitles() {
@@ -499,13 +558,15 @@ class MainActivity : AppCompatActivity() {
             p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                 .build()
-        } catch (e: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("EXIPTV","Untertitel deaktivieren fehlgeschlagen",e) }
     }
 
     private fun aspectLabel(): String = when (aspectMode) {
-        1 -> "Zoom (Vollbild)"
+        1 -> "Vollbild (Zoom)"
         2 -> "Strecken"
-        else -> "Anpassen"
+        3 -> "Breite füllen"
+        4 -> "Höhe füllen"
+        else -> "Anpassen (Original)"
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -570,18 +631,20 @@ class MainActivity : AppCompatActivity() {
         box.addView(menuButton(if (p?.playWhenReady == true) "⏸  Pause" else "▶  Fortsetzen") {
             p?.let { it.playWhenReady = !it.playWhenReady }; buildMenu()
         })
-        box.addView(menuButton("⏪  15 Sekunden zurück") {
-            p?.let { it.seekTo((it.currentPosition - 15_000).coerceAtLeast(0)) }
-        })
-        box.addView(menuButton("15 Sekunden vor  ⏩") {
-            p?.let {
-                val dur = if (it.duration > 0) it.duration else Long.MAX_VALUE
-                it.seekTo((it.currentPosition + 15_000).coerceAtMost(dur))
-            }
-        })
-        box.addView(menuButton("↔  Zeitleiste / schnell spulen (◀ ▶)") {
-            closeVodMenu(); playerView?.showController()
-        })
+        if (isVod) {
+            box.addView(menuButton("⏪  15 Sekunden zurück") {
+                p?.let { it.seekTo((it.currentPosition - 15_000).coerceAtLeast(0)) }
+            })
+            box.addView(menuButton("15 Sekunden vor  ⏩") {
+                p?.let {
+                    val dur = if (it.duration > 0) it.duration else Long.MAX_VALUE
+                    it.seekTo((it.currentPosition + 15_000).coerceAtMost(dur))
+                }
+            })
+            box.addView(menuButton("↔  Zeitleiste / schnell spulen (◀ ▶)") {
+                closeVodMenu(); playerView?.showController()
+            })
+        }
         box.addView(menuButton("Bildformat: " + aspectLabel()) { cycleAspect(); buildMenu() })
 
         menuHeader("Lautstärke (" + Math.round((p?.volume ?: 1f) * 100) + " %)")
@@ -597,8 +660,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         val subs = trackList(C.TRACK_TYPE_TEXT)
-        if (subs.isNotEmpty()) {
-            menuHeader("Untertitel")
+        menuHeader("Untertitel")
+        if (subs.isEmpty()) {
+            box.addView(menuButton("Keine Untertitel für diesen Sender verfügbar") { })
+        } else {
             val anySub = subs.any { it.selected }
             box.addView(menuButton((if (!anySub) "●  " else "○  ") + "Aus") { disableSubtitles(); buildMenu() })
             for (t in subs) box.addView(menuButton((if (t.selected) "●  " else "○  ") + t.label) {
@@ -648,7 +713,7 @@ class MainActivity : AppCompatActivity() {
             p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                 .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
                 .build()
-        } catch (e: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("EXIPTV","Videospur-Reset fehlgeschlagen",e) }
     }
 
     private fun openVodMenu() {
@@ -684,7 +749,7 @@ class MainActivity : AppCompatActivity() {
     private fun hardRecover() {
         if (!playerVisible) return
         val pv = playerView ?: return
-        try { player?.release() } catch (e: Exception) {}
+        try { player?.release() } catch (e: Exception) { android.util.Log.w("EXIPTV","release im Recover",e) }
         player = null
         val np = createPlayer()
         pv.player = np
@@ -693,7 +758,7 @@ class MainActivity : AppCompatActivity() {
             np.setMediaSource(buildSource(lastUrl, lastKind))
             np.prepare()
             np.playWhenReady = true
-        } catch (e: Exception) {}
+        } catch (e: Exception) { android.util.Log.w("EXIPTV","Hard-Recover prepare fehlgeschlagen",e); handleFailure("Neustart fehlgeschlagen") }
         stuckSince = 0; bufferingSince = 0; lastPos = -1
         lastFrames = -1; framesStuckSince = 0; everRendered = false
     }
@@ -753,7 +818,7 @@ class MainActivity : AppCompatActivity() {
         closeVodMenu()
         titleHide?.let { handler.removeCallbacks(it) }
         titleBar?.visibility = android.view.View.GONE
-        try { player?.stop() } catch (e: Exception) {}
+        try { player?.stop() } catch (e: Exception) { android.util.Log.w("EXIPTV","stop fehlgeschlagen",e) }
         try { player?.clearMediaItems() } catch (e: Exception) {}
         playerView?.useController = false
         playerView?.visibility = android.view.View.GONE
@@ -926,7 +991,7 @@ class MainActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Ist das Einstellungsmenü offen? Zurück schließt es; alles andere
         // übernimmt die native Tasten-Navigation zwischen den Knöpfen.
-        if (playerVisible && isVod && menuOpen) {
+        if (playerVisible && menuOpen) {
             if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_BACK) {
                 closeVodMenu(); return true
             }
@@ -987,9 +1052,12 @@ class MainActivity : AppCompatActivity() {
                     web.evaluateJavascript("window.EXNATIVE && EXNATIVE.closed()", null)
                     return true
                 }
-                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                    return true  // im Player ignorieren, nicht an die Oberfläche durchreichen
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                    openVodMenu(); return true   // OK -> gleiches Menü wie bei Film/Serie
+                }
+                KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    return true  // im Live-Player ignorieren, nicht an die Oberfläche durchreichen
                 }
                 else -> {}
             }

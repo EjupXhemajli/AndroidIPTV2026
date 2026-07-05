@@ -11,8 +11,8 @@ android {
         applicationId "com.exiptv.player"
         minSdk 21
         targetSdk 34
-        versionCode 32
-        versionName "0.4.26"
+        versionCode 37
+        versionName "0.4.31"
         // Nur die beiden Android-Architekturen, für die wir den Server haben
         ndk {
             abiFilters 'arm64-v8a', 'armeabi-v7a'
@@ -64,4 +64,8 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer:1.4.1'
     implementation 'androidx.media3:media3-exoplayer-hls:1.4.1'
     implementation 'androidx.media3:media3-ui:1.4.1'
+    // Weltweit-DNS: eigener Resolver (DoH) umgeht Länder-DNS-Sperren beim Streamen
+    implementation 'androidx.media3:media3-datasource-okhttp:1.4.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0'
 }

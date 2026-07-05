@@ -1,0 +1,54 @@
+# SERVER-SPEZIFIKATION (für Neubau des Go-Servers)
+
+Quelle: aus app.js v1.10.34 extrahiert. Diese Routen MUSS ein neuer Server bedienen,
+damit die vorhandene Oberfläche (web/) unverändert funktioniert.
+
+- `/api/bye`
+- `/api/cache/clear`
+- `/api/channels?group=`
+- `/api/channels?group=__fav__`
+- `/api/cities`
+- `/api/continue`
+- `/api/continue/remove`
+- `/api/diag?key=`
+- `/api/epg/channels?q=`
+- `/api/epg/now?keys=`
+- `/api/epg/refresh`
+- `/api/epg/search?q=`
+- `/api/epgmap`
+- `/api/favorite`
+- `/api/groups`
+- `/api/groups/hide`
+- `/api/groups?pl=`
+- `/api/heartbeat`
+- `/api/log`
+- `/api/pin`
+- `/api/playlist/add`
+- `/api/playlist/toggle`
+- `/api/playlist/update`
+- `/api/record/plans`
+- `/api/record/start`
+- `/api/record/stop`
+- `/api/recordings`
+- `/api/recordings/delete`
+- `/api/relay/stats`
+- `/api/reminders`
+- `/api/search?q=`
+- `/api/series?key=`
+- `/api/settings`
+- `/api/state`
+- `/api/stream?key=`
+- `/api/streamhealth?key=`
+- `/api/streammode`
+- `/api/topnews`
+- `/api/vod?kind=`
+- `/api/vodinfo?`
+- `/api/vodsession`
+- `/api/watch`
+- `/api/watch?key=`
+- `/api/watch?key=all`
+- `/api/watch?key=last`
+- `/api/watchlist`
+- `/img?u=`
+- `/x/`
+- `/xv/`
