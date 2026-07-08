@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>ExIptvDesktop</RootNamespace>
+    <AssemblyName>ExIptvDesktop</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <Version>0.1.0</Version>
+    <!-- Kein WebView2 Paket referenziert: Player Pfad bleibt vollstaendig nativ -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Nativer Video-Player, kein Browser-Rendering -->
+    <PackageReference Include="LibVLCSharp" Version="3.8.5" />
+    <PackageReference Include="LibVLCSharp.WPF" Version="3.8.5" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.20" />
+
+    <!-- MVVM ohne zusaetzliche Abstraktionsschichten -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+
+    <!-- Lokale Persistenz: Playlisten, EPG-Cache, Favoriten, Watch-Progress -->
+    <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.10" />
+
+    <!-- Retry/Backoff fuer Xtream-API-Requests -->
+    <PackageReference Include="Polly" Version="8.4.2" />
+
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <!-- Noetig fuer Windows-1252/Legacy-Encodings bei aelteren Provider-Exports -->
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>
